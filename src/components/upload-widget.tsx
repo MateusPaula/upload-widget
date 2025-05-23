@@ -4,9 +4,10 @@ import { UploadWidgetDropzone } from "./upload-widget-dropzone";
 import { UploadWidgetHeader } from "./upload-widget-header";
 import { UploadWidgetUploadList } from "./upload-widget-upload-list";
 import { UploadWidgetMinimizedButton } from "./upload-widget-minimized-button";
+import { usePendingUploads } from "../store/uploads";
 
 export function UploadWidget() {
-    const isThereAnyPendingUploads = true
+    const { isThereAnyPendingUploads }= usePendingUploads()
     // useCycle recebe o primeiro valor como default e depois os valores que ele vai se tornar é como se fosse um switch/toggle
     const [isWidgetOpen, toggleWidgetOpen] = useCycle(false, true);
 
