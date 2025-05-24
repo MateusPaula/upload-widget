@@ -4,14 +4,17 @@ import { immer } from 'zustand/middleware/immer'
 import { uploadFileToStorage } from "../http/upload-file-to-storage";
 import { CanceledError } from "axios";
 import { useShallow } from "zustand/shallow";
+import { compressImage } from "../utils/compress-image";
 
 export type Upload = {
     name: string,
     file: File,
-    abortController: AbortController,
+    abortController?: AbortController,
     status: 'progress' | 'success' | 'error' | 'canceled',
     originalSizeInBytes: number,
+    compressedSizeInBytes?: number
     uploadSizeInBytes: number
+    remoteUrl?: string
 }
 
 type UploadState = {
@@ -20,6 +23,7 @@ type UploadState = {
     uploads: Map<string, Upload>
     addUploads: (files: File[]) => void
     cancelUpload: (uploadId: string) => void
+    retryUpload: (uploadId: string) => void
 }
 
 // Permite usar map e set no estado
@@ -46,12 +50,34 @@ export const useUploads = create<UploadState, [['zustand/immer', never]]>(
             if (!upload) {
                 return
             }
-            try {
-                await uploadFileToStorage({file: upload.file, onProgress(sizeInBytes) {
-                    updateUpload(uploadId, {uploadSizeInBytes: sizeInBytes})
-                },}, { signal: upload.abortController.signal })
 
-                updateUpload(uploadId, { status: 'success' })
+            const abortController = new AbortController()
+
+            updateUpload(uploadId, {
+                uploadSizeInBytes: 0,
+                remoteUrl: undefined,
+                compressedSizeInBytes: undefined,
+                abortController,
+                status: 'progress',
+            })
+
+            try {
+
+                const compressedFile = await compressImage({
+                    file: upload.file,
+                    maxHeight: 1000,
+                    maxWidth: 1000,
+                    quality: 0.8
+                })
+
+                updateUpload(uploadId, { compressedSizeInBytes: compressedFile.size })
+
+
+                const { url } = await uploadFileToStorage({file: compressedFile, onProgress(sizeInBytes) {
+                    updateUpload(uploadId, {uploadSizeInBytes: sizeInBytes})
+                },}, { signal: abortController?.signal })
+
+                updateUpload(uploadId, { status: 'success', remoteUrl: url})
     
             } catch (err) {
                 if (err instanceof CanceledError) {
@@ -71,18 +97,20 @@ export const useUploads = create<UploadState, [['zustand/immer', never]]>(
                 return
             }
 
-            upload.abortController.abort()
+            upload.abortController?.abort()
+        }
+
+        function retryUpload(uploadId: string) {
+            processUpload(uploadId)
         }
         
         function addUploads(files: File[]) {
             for (const file of files) {
                 const uploadId = crypto.randomUUID()
-                const abortController = new AbortController()
 
                 const upload: Upload = {
                     name: file.name,
                     file,
-                    abortController,
                     status: 'progress',
                     originalSizeInBytes: file.size,
                     uploadSizeInBytes: 0
@@ -101,7 +129,8 @@ export const useUploads = create<UploadState, [['zustand/immer', never]]>(
         return {
             uploads: new Map(),
             addUploads,
-            cancelUpload
+            cancelUpload,
+            retryUpload
         }
     })
 )
@@ -116,8 +145,13 @@ export const usePendingUploads = () => {
 
         const {total, uploaded } = Array.from(store.uploads.values()).reduce(
             (acc, upload) => {
-                acc.total += upload.originalSizeInBytes
-                acc.uploaded += upload.uploadSizeInBytes
+                if (upload.compressedSizeInBytes) {
+                    acc.uploaded += upload.uploadSizeInBytes
+                }
+
+                acc.total += upload.compressedSizeInBytes || upload.originalSizeInBytes
+
+
                 return acc
             },
             { total: 0, uploaded: 0}
