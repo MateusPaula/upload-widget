@@ -1,0 +1,27 @@
+name: Pre-Commit Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opnened, reopened, labeled, unlabeled, synchronize]
+
+jobs:
+  pre-commit:
+    name: Run Pre-Commit Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Run Pre-Commit Checks
+        run: npx @biomejs/biome check --write --no-errors-on-unmatched --colors=off {staged_files}

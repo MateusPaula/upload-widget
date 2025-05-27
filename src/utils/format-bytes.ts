@@ -1,15 +1,16 @@
 export function formatBytes(bytes: number): string {
-  if (bytes < 0) {
-    throw new Error("Size in bytes cannot be negative");
+  let currentBytes = bytes
+  if (currentBytes < 0) {
+    throw new Error('Size in bytes cannot be negative')
   }
 
-  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-  let index = 0;
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+  let index = 0
 
-  while (bytes >= 1024 && index < units.length - 1) {
-    bytes /= 1024;
-    index++;
+  while (currentBytes >= 1024 && index < units.length - 1) {
+    currentBytes /= 1024
+    index++
   }
 
-  return `${bytes.toFixed(2)} ${units[index]}`;
+  return `${currentBytes.toFixed(2)} ${units[index]}`
 }
