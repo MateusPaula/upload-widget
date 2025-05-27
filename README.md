@@ -31,7 +31,7 @@ export default tseslint.config({
 })
 ```
 
-## We are using Biome instead of Eslint for this project
+## We are using Biome instead of Eslint for this project and Lefthook
 
 
 export default tseslint.config({
